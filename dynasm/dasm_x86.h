@@ -1,6 +1,6 @@
 /*
 ** DynASM x86 encoding engine.
-** Copyright (C) 2005-2012 Mike Pall. All rights reserved.
+** Copyright (C) 2005-2017 Mike Pall. All rights reserved.
 ** Released under the MIT license. See dynasm.lua for full copyright notice.
 */
 
@@ -204,7 +204,8 @@ void dasm_put(Dst_DECL, int start, ...)
       case DASM_SPACE: p++; ofs += n; break;
       case DASM_SETLABEL: b[pos-2] = -0x40000000; break;  /* Neg. label ofs. */
       case DASM_VREG: CK((n&-8) == 0 && (n != 4 || (*p&1) == 0), RANGE_VREG);
-	if (*p++ == 1 && *p == DASM_DISP) mrm = n; continue;
+	if (*p++ == 1 && *p == DASM_DISP) mrm = n;
+        continue;
       }
       mrm = 4;
     } else {
@@ -213,7 +214,8 @@ void dasm_put(Dst_DECL, int start, ...)
       case DASM_REL_LG:
       case DASM_IMM_LG:
 	n = *p++; pl = D->lglabels + n;
-	if (n <= 246) { CKPL(lg, LG); goto putrel; }  /* Bkwd rel or global. */
+	/* Bkwd rel or global. */
+	if (n <= 246) { CK(n>=10||*pl<0, RANGE_LG); CKPL(lg, LG); goto putrel; }
 	pl -= 246; n = *pl;
 	if (n < 0) n = 0;  /* Start new chain for fwd rel if label exists. */
 	goto linkrel;

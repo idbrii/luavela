@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 -- DynASM x86/x64 module.
 --
--- Copyright (C) 2005-2012 Mike Pall. All rights reserved.
+-- Copyright (C) 2005-2017 Mike Pall. All rights reserved.
 -- See dynasm.lua for full copyright notice.
 ------------------------------------------------------------------------------
 
@@ -1040,7 +1040,7 @@ local map_op = {
   -- ED: *in Rdw,dx
   -- EE: *out dx,Rb
   -- EF: *out dx,Rdw
-  -- F0: *lock
+  lock_0 =	"F0",
   int1_0 =	"F1",
   repne_0 =	"F2",
   repnz_0 =	"F2",
@@ -1081,7 +1081,11 @@ local map_op = {
   btr_2 =	"mrqdw:0FB3Rm|miqdw:0FBA6mU",
   bts_2 =	"mrqdw:0FABRm|miqdw:0FBA5mU",
 
+  shld_3 =	"mriqdw:0FA4RmU|mrC/qq:0FA5Rm|mrC/dd:|mrC/ww:",
+  shrd_3 =	"mriqdw:0FACRmU|mrC/qq:0FADRm|mrC/dd:|mrC/ww:",
+
   rdtsc_0 =	"0F31", -- P1+
+  rdpmc_0 =	"0F33", -- P6+
   cpuid_0 =	"0FA2", -- P1+
 
   -- floating point ops
@@ -1114,6 +1118,9 @@ local map_op = {
   fucompp_0 =	"DAE9",
   fcompp_0 =	"DED9",
 
+  fldenv_1 =	"x.:D94m",
+  fnstenv_1 =	"x.:D96m",
+  fstenv_1 =	"x.:9BD96m",
   fldcw_1 =	"xw:nD95m",
   fstcw_1 =	"xw:n9BD97m",
   fnstcw_1 =	"xw:nD97m",
@@ -1184,11 +1191,13 @@ local map_op = {
   cvtsi2sd_2 =	"rm/od:F20F2ArM|rm/oq:F20F2ArXM",
   cvtsi2ss_2 =	"rm/od:F30F2ArM|rm/oq:F30F2ArXM",
   cvtss2sd_2 =	"rro:F30F5ArM|rx/od:",
-  cvtss2si_2 =	"rr/do:F20F2CrM|rr/qo:|rxd:|rx/qd:",
+  cvtss2si_2 =	"rr/do:F30F2DrM|rr/qo:|rxd:|rx/qd:",
   cvttpd2dq_2 =	"rmo:660FE6rM",
   cvttps2dq_2 =	"rmo:F30F5BrM",
   cvttsd2si_2 =	"rr/do:F20F2CrM|rr/qo:|rx/dq:|rxq:",
   cvttss2si_2 =	"rr/do:F30F2CrM|rr/qo:|rxd:|rx/qd:",
+  fxsave_1 =	"x.:0FAE0m",
+  fxrstor_1 =	"x.:0FAE1m",
   ldmxcsr_1 =	"xd:0FAE2m",
   lfence_0 =	"0FAEE8",
   maskmovdqu_2 = "rro:660FF7rM",
@@ -1239,7 +1248,7 @@ local map_op = {
   pcmpgtb_2 =	"rmo:660F64rM",
   pcmpgtd_2 =	"rmo:660F66rM",
   pcmpgtw_2 =	"rmo:660F65rM",
-  pextrw_3 =	"rri/do:660FC5rMU|xri/wo:660F3A15nrMU", -- Mem op: SSE4.1 only.
+  pextrw_3 =	"rri/do:660FC5rMU|xri/wo:660F3A15nRmU", -- Mem op: SSE4.1 only.
   pinsrw_3 =	"rri/od:660FC4rMU|rxi/ow:",
   pmaddwd_2 =	"rmo:660FF5rM",
   pmaxsw_2 =	"rmo:660FEErM",
@@ -1344,7 +1353,7 @@ local map_op = {
   dpps_3 =	"rmio:660F3A40rMU",
   extractps_3 =	"mri/do:660F3A17RmU|rri/qo:660F3A17RXmU",
   insertps_3 =	"rrio:660F3A41rMU|rxi/od:",
-  movntdqa_2 =	"rmo:660F382ArM",
+  movntdqa_2 =	"rxo:660F382ArM",
   mpsadbw_3 =	"rmio:660F3A42rMU",
   packusdw_2 =	"rmo:660F382BrM",
   pblendvb_3 =	"rmRo:660F3810rM",
@@ -1678,7 +1687,7 @@ if x64 then
   function map_op.mov64_2(params)
     if not params then return { "reg, imm", "reg, [disp]", "[disp], reg" } end
     if secpos+2 > maxsecpos then wflush() end
-    local opcode, op64, sz, rex
+    local opcode, op64, sz, rex, vreg
     local op64 = match(params[1], "^%[%s*(.-)%s*%]$")
     if op64 then
       local a = parseoperand(params[2])
@@ -1699,11 +1708,17 @@ if x64 then
 	  werror("bad operand mode")
 	end
 	op64 = params[2]
-	opcode = 0xb8 + band(a.reg, 7) -- !x64: no VREG support.
+	if a.reg == -1 then
+	  vreg = a.vreg
+	  opcode = 0xb8
+	else
+	  opcode = 0xb8 + band(a.reg, 7)
+	end
 	rex = a.reg > 7 and 9 or 8
       end
     end
     wputop(sz, opcode, rex)
+    if vreg then waction("VREG", vreg); wputxb(0) end
     waction("IMM_D", format("(unsigned int)(%s)", op64))
     waction("IMM_D", format("(unsigned int)((%s)>>32)", op64))
   end

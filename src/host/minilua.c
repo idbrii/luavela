@@ -1,5 +1,5 @@
 /* This is a heavily customized and minimized copy of Lua 5.1.5. */
-/* It's only used to build LuaJIT. It does NOT have all standard functions! */
+/* It's only used to build uJIT. It does NOT have all standard functions! */
 /******************************************************************************
 * Copyright (C) 1994-2012 Lua.org, PUC-Rio.  All rights reserved.
 *
@@ -1605,7 +1605,7 @@ luaC_barriert(L,t,key);
 return gval(mp);
 }
 static const TValue*luaH_getnum(Table*t,int key){
-if(cast(unsigned int,key-1)<cast(unsigned int,t->sizearray))
+if(cast(unsigned int,key)-1<cast(unsigned int,t->sizearray))
 return&t->array[key-1];
 else{
 lua_Number nk=cast_num(key);
